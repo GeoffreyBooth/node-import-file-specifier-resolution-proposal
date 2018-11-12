@@ -1,0 +1,23 @@
+{
+  "name": "esm-npm-modules-research",
+  "version": "1.0.0",
+  "description": "Data gathering about JavaScript files used in ESM-using NPM packages",
+  "scripts": {
+    "start": "node ./analyze-results.js",
+    "get-results": "npx coffee ./get-results.coffee",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Geoffrey Booth",
+  "license": "ISC",
+  "repository": "git@github.com:GeoffreyBooth/node-import-file-specifier-resolution-proposal.git",
+  "devDependencies": {
+    "coffeescript": "^2.3.2"
+  },
+  "dependencies": {
+    "acorn-loose": "^6.0.0",
+    "ast-types": "^0.11.6",
+    "estree-walker": "^0.5.2",
+    "globby": "^8.0.1",
+    "mz": "^2.7.0"
+  }
+}
