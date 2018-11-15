@@ -23,10 +23,10 @@ As part of preparing the package exports proposal, @GeoffreyBooth did [research]
 
 A project was created with those packages `npm install`ed, creating a gigantic `node_modules` folder containing 96,923 JavaScript (`.js` or `.mjs`) files. Code was then written to parse all of those JavaScript files with `acorn` and look for `import` or `export` declarations, and inspect the specifiers used in the `import` statements. The [code for this](./esm-npm-modules-research) is in this repo. Here are the numbers:
 
-- 5,862 `import` statements imported ESM modules (defined as NPM packages with a `"module"` field in their `package.json`)
-- 36,600 `import` statements imported CommonJS modules (defined as packages lacking a `"module"` field)
-- 73,200 `import` statements imported ESM JavaScript files (defined as files with an `import` or `export` declaration)
-- 0 (yes, zero) `import` statements imported non-ESM JavaScript files (defined as files without either an `import` or `export` statement)
+- 5,862 `import` statements imported ESM modules (defined as NPM packages with a `"module"` field in their `package.json`) as bare specifiers, e.g. `import 'esm-module'`
+- 36,600 `import` statements imported CommonJS modules (defined as packages lacking a `"module"` field) as bare specifiers, e.g. `import 'cjs-module'`
+- 73,200 `import` statements imported ESM JavaScript files (defined as files with an `import` or `export` declaration), e.g. `import './esm-file.mjs'`
+- 0 (yes, zero) `import` statements imported non-ESM JavaScript files (defined as files without either an `import` or `export` statement), e.g. `import './cjs-file.js'`
 
 ## A Note on Defaults
 
