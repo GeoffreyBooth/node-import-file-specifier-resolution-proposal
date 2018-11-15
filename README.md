@@ -38,9 +38,9 @@ As `import` statements of CommonJS `.js` files appears to be nonexistent in the 
 
 ### ESM Files Importing ESM Files: `import` Statements File Specifiers Interface
 
-An ESM JavaScript file would use an `import` statement to import another ESM JavaScript file. Imported files must have either a `.js` or `.mjs` extension, and must be specified using either a relative or absolute path.
+An ESM JavaScript file would use an `import` statement to import another ESM JavaScript file. Imported files must have either a `.js` or `.mjs` extension, and must be specified using a relative path. (Absolute paths may be supported in the future, if a system can be worked out that is compatible with browsers.)
 
-Paths must begin with `.` or `/` or `file://`; specifiers that begin with a letter or `@` (or other allowed package name character) are treated as bare specifiers/package names and are covered by the [package exports proposal](https://github.com/jkrems/proposal-pkg-exports). Like import specifiers in browsers, Node’s import specifiers are URLs and therefore always use forward slashes and escape characters the same way URLs do.
+Paths must begin with `.`; specifiers that begin with a letter or `@` (or other allowed package name character) are treated as bare specifiers/package names and are covered by the [package exports proposal](https://github.com/jkrems/proposal-pkg-exports). Like import specifiers in browsers, Node’s import specifiers are URLs and therefore always use forward slashes and escape characters the same way URLs do.
 
 #### Relative to the importing file: specifiers starting with `.`
 
@@ -60,40 +60,9 @@ import { convertTemperature } from './helpers/temperature.mjs';
 
 These “relative” specifiers always start with a period. A specifier such as `'constants.mjs'` (no leading period) would be treated as a bare specifier, looking for a package named `constants.mjs` rather than a sibling file with that name.
 
-#### Relative to the importing file’s package root: specifiers starting with `/`
+#### Specifiers starting with `/` or protocols like `file://`
 
-Specifiers that begin with `/` operate the same as those that begin with `.`, except that the starting point for finding the file varies depending on whether the file doing the importing is inside a package or not. “Inside a package” is defined as being in or under a folder that contains a `package.json` file.
-
-```js
-// Same folder structure as previous example, but this time we’re in temperature.mjs
-
-import { APP_ROOT_URL } from '/constants.mjs';
-```
-
-In this example, Node searches the folder tree upward from `temperature.mjs`, looking for a `package.json` file. In this case, it finds a `package.json` one level up; therefore that’s the package root, and the folder from which the `/` is relative. So if the full paths were `/usr/src/app/constants.mjs`, `/usr/src/app/package.json` and `/usr/src/app/helpers/temperature.mjs`, the above `import` statement would correctly find `constants.mjs` one level up from `temperature.mjs`.
-
-If Node walks all the way up to the file system root without finding a `package.json` file, Node treats the file system root as the package root and `/` is relative to that.
-
-##### Note on browser compatibility
-
-This is the example currently on the [MDN JavaScript reference page for `import`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/import):
-
-```js
-import * as myModule from '/modules/my-module.js';
-```
-
-We feel that treating `/` as relative to the package/project root (assuming there is one) is more compatible with browser behavior than having `/` always behave relative to the file system root. Many webservers have configuration files defining where a “web root” is set, like `/usr/share/nginx/html`, and the `/`-as-package root behavior corresponds with that and lets more projects share identical `import` statements between Node and browser builds, and therefore hopefully require fewer build processes in general.
-
-#### Absolute: specifiers starting with `file://`
-
-An absolute path to a file can be specified using the `file://` protocol:
-
-```js
-import config from 'file://etc/nginx/config.mjs';
-
-// Or on Windows:
-import config from 'file:///C:/Inetpub/wwwroot/config.mjs';
-```
+These are currently unsupported but reserved for future use.
 
 ### ESM Files Importing CommonJS Files Within Packages (“Deep Imports”)
 
