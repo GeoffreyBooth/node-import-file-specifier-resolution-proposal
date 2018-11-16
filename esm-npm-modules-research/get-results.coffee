@@ -7,6 +7,9 @@ globby = require 'globby'
 esmPackages = require('./modules-using-module/package.json').dependencies
 
 
+# Make normal Node aware of .mjs for the purposes of require.resolve
+require.extensions['.mjs'] = require.extensions['.js']
+
 do ->
 	try
 		results = JSON.parse await readFile './results.json', 'utf8'
@@ -17,8 +20,16 @@ do ->
 		for file in files
 			source = await readFile file, 'utf8'
 			try
-				ast = parse source
+				# Use Acorn to parse the source, with the most permissive settings
+				ast = parse source,
+					ecmaVersion: 10 # Highest supported ES version as of 2018
+					allowReserved: yes
+					allowReturnOutsideFunction: yes
+					allowImportExportEverywhere: yes
+					allowAwaitOutsideFunction: yes
+					allowHashBang: yes
 			catch
+				console.error "Error: Could not parse #{file}"
 				continue # Skip unparsable files
 
 			results[file] =
@@ -38,13 +49,9 @@ do ->
 						try
 							importSource = require.resolve join(process.cwd(), importSource)
 							importSource = importSource.replace process.cwd(), '.'
-						catch
-							try
-								importSource = require.resolve join(process.cwd(), "#{importSource}.mjs")
-								importSource = importSource.replace process.cwd(), '.'
-							catch # Unresolvable for some reason
-								unresolved = yes
-								console.error "Error: Could not resolve #{importSource} imported by #{file}"
+						catch # Unresolvable for some reason
+							unresolved = yes
+							console.error "Error: Could not resolve #{importSource} imported by #{file}"
 						results[file].importSources[importSource] =
 							type: 'file'
 							source: path.node.source.value
