@@ -60,9 +60,13 @@ import { convertTemperature } from './helpers/temperature.mjs';
 
 These “relative” specifiers always start with a period. A specifier such as `'constants.mjs'` (no leading period) would be treated as a bare specifier, looking for a package named `constants.mjs` rather than a sibling file with that name.
 
-#### Specifiers starting with `/` or protocols like `file://`
+#### Specifiers starting with `/`, `//`, or `///`
 
 These are currently unsupported but reserved for future use.
+
+#### Absolute URLs
+
+If the specifier is a valid URL, no additional resolution will be done and the URL will be used as-is.
 
 ### ESM Files Importing CommonJS Files Within Packages (“Deep Imports”)
 
