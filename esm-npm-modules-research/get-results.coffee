@@ -7,9 +7,6 @@ globby = require 'globby'
 esmPackages = require('./modules-using-module/package.json').dependencies
 
 
-# Make normal Node aware of .mjs for the purposes of require.resolve
-require.extensions['.mjs'] = require.extensions['.js']
-
 do ->
 	try
 		results = JSON.parse await readFile './results.json', 'utf8'
@@ -33,7 +30,8 @@ do ->
 				continue # Skip unparsable files
 
 			results[file] =
-				isEsm: no # All files are presumed non-ESM unless they contain an import or export statement, as discovered below
+				isEsm: no # Presume nothing until we affirmatively detect ESM or CommonJS signifiers
+				isCjs: no # A file could be both ESM and CommonJS, e.g. containing both an import statement and a require call
 				importSources: {} # What modules or files are imported by the import statements of this file
 				importStatementsCount: 0 # We track this since importSources dedupes
 				exportStatementsCount: 0
@@ -42,16 +40,21 @@ do ->
 				results[file].isEsm = yes
 				results[file].importStatementsCount++
 				# Adapted from https://github.com/Jam3/detect-import-require/blob/master/index.js#L64
-				if path.node.source.type is 'Literal'
+				if path.node.source?.type is 'Literal'
 					if path.node.source.value[0] is '.' # Relative file path
 						importSource = join dirname(file), path.node.source.value
 						unresolved = no
 						try
-							importSource = require.resolve join(process.cwd(), importSource)
+							# Try resolving an auto-supplied .mjs extension first, in case there’s both a file.mjs and a file.js side-by-side
+							importSource = require.resolve join(process.cwd(), "#{importSource}.mjs")
 							importSource = importSource.replace process.cwd(), '.'
-						catch # Unresolvable for some reason
-							unresolved = yes
-							console.error "Error: Could not resolve #{importSource} imported by #{file}"
+						catch
+							try
+								importSource = require.resolve join(process.cwd(), importSource)
+								importSource = importSource.replace process.cwd(), '.'
+							catch # Unresolvable for some reason
+								unresolved = yes
+								console.error "Error: Could not resolve #{importSource} imported by #{file}"
 						results[file].importSources[importSource] =
 							type: 'file'
 							source: path.node.source.value
@@ -68,15 +71,33 @@ do ->
 				results[file].exportStatementsCount++
 				@traverse path
 
+			visitCallExpression = (path) ->
+				if path.node.callee?.name is 'require'
+					results[file].isCjs = yes
+				@traverse path
+
+			visitMemberExpression = (path) ->
+				if path.node.object?.name is 'module' and path.node.property?.name is 'exports'
+					results[file].isCjs = yes
+				@traverse path
+
+			visitIdentifier = (path) ->
+				if path.node.name in ['exports', '__dirname', '__filename']
+					results[file].isCjs = yes
+				@traverse path
+
 			visit ast,
 				visitImportDeclaration: visitImport
-				visitExportNamedDeclaration: visitExport
+				visitExportNamedDeclaration: visitImport
 				visitExportDefaultDeclaration: visitExport
 				visitExportAllDeclaration: visitExport
+				visitCallExpression: visitCallExpression
+				visitMemberExpression: visitMemberExpression
+				visitIdentifier: visitIdentifier
 
-		for file, result of results
-			for importSourceKey, importSourceValue of result.importSources when importSourceValue.type is 'file'
-				importSourceValue.isEsm = results[file].isEsm
-
+		for resultKey, resultValue of results
+			for importSourceKey, importSourceValue of resultValue.importSources when importSourceValue.type is 'file'
+				importSourceValue.isEsm = results[importSourceKey]?.isEsm
+				importSourceValue.isCjs = results[importSourceKey]?.isCjs
 		try
 			await writeFile './results.json', JSON.stringify(results, null, '\t')

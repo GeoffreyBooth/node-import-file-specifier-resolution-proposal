@@ -13,13 +13,13 @@ for (const file in results) {
     if (value.type === 'package') {
       if (value.isEsm) {
         esmModulesImported++;
-      } else {
+      } else if (value.isEsm === false) {
         cjsModulesImported++;
       }
     } else {
       if (value.isEsm) {
         esmFilesImported++;
-      } else {
+      } else if (value.isEsm === false) {
         cjsFilesImported++;
       }
     }

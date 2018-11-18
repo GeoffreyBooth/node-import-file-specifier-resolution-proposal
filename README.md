@@ -21,18 +21,18 @@
 
 As part of preparing the package exports proposal, @GeoffreyBooth did [research](https://gist.github.com/GeoffreyBooth/1b0d7a06bae52d124ace313634cb2f4a) into public NPM registry packages using ESM syntax already, as identified by packages that define a `"module"` field in their `package.json` files. There are 941 such packages as of 2018-10-22.
 
-A project was created with those packages `npm install`ed, creating a gigantic `node_modules` folder containing 96,923 JavaScript (`.js` or `.mjs`) files. Code was then written to parse all of those JavaScript files with `acorn` and look for `import` or `export` declarations, and inspect the specifiers used in the `import` statements. The [code for this](./esm-npm-modules-research) is in this repo. Here are the numbers:
+A project was created with those packages `npm install`ed, creating a gigantic `node_modules` folder containing 96,923 JavaScript (`.js` or `.mjs`) files. Code was then written to parse all of those JavaScript files with `acorn` and look for `import` or `export` declarations, and inspect the specifiers used in the `import` or `export ... from` statements. The [code for this](./esm-npm-modules-research) is in this repo. Here are the numbers:
 
-- 5,862 `import` statements imported ESM modules (defined as NPM packages with a `"module"` field in their `package.json`) as bare specifiers, e.g. `import 'esm-module'`
-- 36,600 `import` statements imported CommonJS modules (defined as packages lacking a `"module"` field) as bare specifiers, e.g. `import 'cjs-module'`
-- 73,200 `import` statements imported ESM JavaScript files (defined as files with an `import` or `export` declaration), e.g. `import './esm-file.mjs'`
-- 0 (yes, zero) `import` statements imported non-ESM JavaScript files (defined as files without either an `import` or `export` statement), e.g. `import './cjs-file.js'`
+- 5,870 `import` statements imported ESM modules (defined as NPM packages with a `"module"` field in their `package.json`) as bare specifiers, e.g. `import 'esm-module'`
+- 36,712 `import` statements imported CommonJS modules (defined as packages lacking a `"module"` field) as bare specifiers, e.g. `import 'cjs-module'`
+- 85,913 `import` statements imported ESM JavaScript files (defined as files with an `import` or `export` declaration), e.g. `import './esm-file.mjs'`
+- 4,526 `import` statements imported non-ESM JavaScript files (defined as files without either an `import` or `export` statement), e.g. `import './cjs-file.js'`
 
 ## A Note on Defaults
 
 The `--experimental-modules` implementation takes the position that `.js` files should be treated as CommonJS by default, and as of this writing there is no way to configure Node to treat them otherwise. [nodejs/modules#160](https://github.com/nodejs/modules/pull/160) contains proposals for adding a configuration block for allowing users to override this default behavior to tell Node to treat `.js` files as ESM (or more broadly, to define how Node interprets any file extension). This proposal takes the position that `.js` should be treated as ESM by default, both to follow browsers but also to be forward-looking in that ESM is the standard and should therefore be the default behavior within ESM files, rather than something to be opted into. That doesn’t mean we can’t _still_ provide such a configuration block, for example to enable the `--experimental-modules` behavior, and that might indeed be a good idea.
 
-As `import` statements of CommonJS `.js` files appears to be nonexistent in the wild, however, even though it is completely possible in today’s Babel/Webpack/Rollup-based solutions, we come to the conclusion that users are likely to strongly prefer `import` statements of `.js` files to treat those files as ESM rather than CommonJS as Node’s default behavior. `import` statements of `.mjs` files would always be treated as ESM, as they are in both `--experimental-modules` and the new modules implementation.
+As `import` statements of CommonJS `.js` files appear to be far less popular than imports of ESM `.js` files (the latter are 19 times more common), we come to the conclusion that users are likely to strongly prefer `import` statements of `.js` files to treat those files as ESM rather than CommonJS as Node’s default behavior. `import` statements of `.mjs` files would always be treated as ESM, as they are in both `--experimental-modules` and the new modules implementation.
 
 ## Proposal
 
@@ -86,7 +86,7 @@ In other words, the specifiers here behave the same as if they were in `require`
 
 ### ESM Files Importing “Loose” CommonJS Files (Files Outside of Packages)
 
-Currently, `module.createRequireFromPath` can be used to import CommonJS files that aren’t inside a CommonJS package. Seeing as there doesn’t seem to be much (or any) user demand for ESM files importing CommonJS files outside of CommonJS packages, we feel that `module.createRequireFromPath` is sufficient for now.
+Currently, `module.createRequireFromPath` can be used to import CommonJS files that aren’t inside a CommonJS package. Seeing as there is low user demand for ESM files importing CommonJS files outside of CommonJS packages, we feel that `module.createRequireFromPath` is sufficient for now.
 
 If user demand grows such that we want to provide a way to use `import` statements to import CommonJS files that aren’t inside CommonJS packages, we have a few options:
 
