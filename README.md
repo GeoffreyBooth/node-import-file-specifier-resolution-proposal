@@ -1,6 +1,6 @@
 # File Specifier Resolution in Node.js
 
-**Contributors**: Geoffrey Booth (@GeoffreyBooth), John-David Dalton (@jdalton)
+**Contributors**: Geoffrey Booth (@GeoffreyBooth), John-David Dalton (@jdalton), Jan Krems (@jkrems), Guy Bedford (@guybedford), Saleh Abdel Motaal (@SMotaal)
 
 ## Motivating Examples
 
@@ -26,11 +26,11 @@ A project was created with those packages `npm install`ed, creating a gigantic `
 - 5,870 `import` statements imported ESM modules (defined as NPM packages with a `"module"` field in their `package.json`) as bare specifiers, e.g. `import 'esm-module'`
 - 36,712 `import` statements imported CommonJS modules (defined as packages lacking a `"module"` field) as bare specifiers, e.g. `import 'cjs-module'`
 - 85,913 `import` statements imported ESM JavaScript files (defined as files with an `import` or `export` declaration), e.g. `import './esm-file.mjs'`
-- 4,526 `import` statements imported non-ESM JavaScript files (defined as files without either an `import` or `export` statement), e.g. `import './cjs-file.js'`
+- 4,526 `import` statements imported CommonJS JavaScript files (defined as files without a `require` call, reference to `module.exports` or `exports` or `__filename` or `__dirname`), e.g. `import './cjs-file.js'`
 
 ## A Note on Defaults
 
-The `--experimental-modules` implementation takes the position that `.js` files should be treated as CommonJS by default, and as of this writing there is no way to configure Node to treat them otherwise. [nodejs/modules#160](https://github.com/nodejs/modules/pull/160) contains proposals for adding a configuration block for allowing users to override this default behavior to tell Node to treat `.js` files as ESM (or more broadly, to define how Node interprets any file extension). This proposal takes the position that `.js` should be treated as ESM by default, both to follow browsers but also to be forward-looking in that ESM is the standard and should therefore be the default behavior within ESM files, rather than something to be opted into. That doesn’t mean we can’t _still_ provide such a configuration block, for example to enable the `--experimental-modules` behavior, and that might indeed be a good idea.
+The `--experimental-modules` implementation takes the position that `.js` files should be treated as CommonJS by default, and as of this writing there is no way to configure Node to treat them otherwise. [nodejs/modules#160](https://github.com/nodejs/modules/pull/160) contains proposals for adding a configuration block for allowing users to override this default behavior to tell Node to treat `.js` files as ESM (or more broadly, to define how Node interprets any file extension). This proposal takes the position that `.js` should be treated as ESM by default, both to follow browsers but also to be forward-looking in that ESM is the standard and should therefore be the default behavior within ESM files, rather than something to be opted into. That doesn’t mean we can’t _still_ provide such a configuration block, for example to enable the `--experimental-modules` behavior, and that might indeed be a good idea. Two proposals for configuration blocks are [`"mode"`](https://github.com/nodejs/node/pull/18392) and [`"mimes"`](https://github.com/nodejs/modules/pull/160), which are complementary to this proposal.
 
 As `import` statements of CommonJS `.js` files appear to be far less popular than imports of ESM `.js` files (the latter are 19 times more common), we come to the conclusion that users are likely to strongly prefer `import` statements of `.js` files to treat those files as ESM rather than CommonJS as Node’s default behavior. `import` statements of `.mjs` files would always be treated as ESM, as they are in both `--experimental-modules` and the new modules implementation.
 
@@ -38,11 +38,11 @@ As `import` statements of CommonJS `.js` files appear to be far less popular tha
 
 ### ESM Files Importing ESM Files: `import` Statements File Specifiers Interface
 
-An ESM JavaScript file would use an `import` statement to import another ESM JavaScript file. Imported files must have either a `.js` or `.mjs` extension, and must be specified using a relative path. (Absolute paths may be supported in the future, if a system can be worked out that is compatible with browsers.)
+An ESM JavaScript file would use an `import` statement to import another ESM JavaScript file. Imported files must have either a `.js` or `.mjs` extension, and must be specified using a relative path. (Absolute paths may be supported in the future, if a system can be worked out that is compatible with browsers; see also Absolute URLs below.)
 
-Paths must begin with `.`; specifiers that begin with a letter or `@` (or other allowed package name character) are treated as bare specifiers/package names and are covered by the [package exports proposal](https://github.com/jkrems/proposal-pkg-exports). Like import specifiers in browsers, Node’s import specifiers are URLs and therefore always use forward slashes and escape characters the same way URLs do.
+Paths must begin with `./` or `../`; specifiers that begin with a letter or `@` (or other allowed package name character) are treated as bare specifiers/package names and are covered by the [package exports proposal](https://github.com/jkrems/proposal-pkg-exports). Like import specifiers in browsers, Node’s import specifiers are URLs and therefore always use forward slashes and escape characters the same way URLs do.
 
-#### Relative to the importing file: specifiers starting with `.`
+#### Relative to the importing file: specifiers starting with `./` or `../`
 
 The following `import` statements import relative files, treating them as JavaScript with an ESM parse goal:
 
@@ -60,29 +60,48 @@ import { convertTemperature } from './helpers/temperature.mjs';
 
 These “relative” specifiers always start with a period. A specifier such as `'constants.mjs'` (no leading period) would be treated as a bare specifier, looking for a package named `constants.mjs` rather than a sibling file with that name.
 
-#### Specifiers starting with `/`, `//`, or `///`
+#### Specifiers starting with `/` or `//`
 
 These are currently unsupported but reserved for future use.
 
 #### Absolute URLs
 
-If the specifier is a valid URL, no additional resolution will be done and the URL will be used as-is.
+If the specifier parses as a valid URL, that parsed URL is used directly with no additional resolution performed. This follows [the HTML spec for resolving module specifiers](https://html.spec.whatwg.org/multipage/webappapis.html#integration-with-the-javascript-module-system).
 
-### ESM Files Importing CommonJS Files Within Packages (“Deep Imports”)
+```js
+import config from 'file:///opt/nodejs/config.js';
+```
 
-An ESM JavaScript file importing a CommonJS package, or a file within a CommonJS package (a “deep import”) uses the specifier resolution algorithm that CommonJS uses now. For example, where `underscore` and `aws-sdk` are both CommonJS packages:
+### ESM Files Importing CommonJS Packages
+
+An ESM JavaScript file importing a CommonJS package, where the entire import specifier is the CommonJS package name, uses the specifier resolution algorithm that CommonJS uses now to resolve the main entry point of the package. For example, where `underscore` and `pad` are both CommonJS packages:
 
 ```js
 import _ from 'underscore';
 // underscore has a package.json "main" field specifying "underscore.js"
 
-import S3 from 'aws-sdk/clients/s3';
-// aws-sdk has a top-level folder named clients containing a file named s3.js
+import pad from 'pad';
+// pad has a file named "index.js" in its root
 ```
 
-In other words, the specifiers here behave the same as if they were in `require` calls, because the package name (`underscore` or `aws-sdk`) is detected as a CommonJS package. (The packages are treated as CommonJS because they lack the package exports proposal’s `"exports"` field.)
+In other words, the specifiers here behave the same as if they were in `require` calls, because the package name (`underscore` or `pad`) is detected as a CommonJS package. Packages are detected as CommonJS by _lacking_ a signifier that the package should be treated as ESM, for example the `"exports"` field from the [package exports proposal](https://github.com/jkrems/proposal-pkg-exports) or another field like [`"mode"`](https://github.com/nodejs/node/pull/18392).
 
 “Dual-mode” packages, that export both ESM and CommonJS entry points, are loaded as ESM when imported via the `import` statement, and follow the rules of the package exports proposal. To explicitly import a dual-mode package via its CommonJS entry point, [`module.createRequireFromPath`](https://nodejs.org/docs/latest/api/modules.html#modules_module_createrequirefrompath_filename) could be used.
+
+
+### ESM Files Importing Files Within CommonJS Packages (“Deep Imports”)
+
+An import specifier starting with the package name of a CommonJS package tells Node to treat any files within that package (a “deep import”) as CommonJS. Unlike `require` statements, however, file extensions are not automatically applied and `index.js` is not automatically found inside folder paths. Subpaths of CommonJS packages are always loaded as CommonJS; a subpath ending in `.mjs` would throw (for now; if it can be determined that importing `.mjs` files from within CommonJS packages can be done safely, it could be enabled in the future).
+
+For example, where `underscore` and `aws-sdk` are both CommonJS packages:
+
+```js
+import shuffle from 'underscore/shuffle.js';
+// shuffle.js is a CommonJS file at the package root
+
+import S3 from 'aws-sdk/clients/s3.js';
+// aws-sdk has a top-level folder named clients containing a CommonJS file named s3.js
+```
 
 ### ESM Files Importing “Loose” CommonJS Files (Files Outside of Packages)
 
@@ -90,10 +109,11 @@ Currently, `module.createRequireFromPath` can be used to import CommonJS files t
 
 If user demand grows such that we want to provide a way to use `import` statements to import CommonJS files that aren’t inside CommonJS packages, we have a few options:
 
-1. We could introduce a `.cjs` extension that Node always interprets as JavaScript with a CommonJS parse goal, the mirror of `.mjs`. (This might be a good thing to add in any case, for design symmetry.) Users could then rename their CommonJS `.js` files to use `.cjs` extensions and import them via `import` statements. We could also support symlinks, so that a `foo.cjs` symlink pointing at `foo.js` would be treated as CommonJS when imported via `import './foo.cjs';`, to support cases where users can’t rename their files for whatever reason.
-2. We could implement the `"mimes"` proposal from [nodejs/modules#160](https://github.com/nodejs/modules/pull/160), which lets users control how Node treats various file extensions within a package boundary. This would let users save their ESM files with `.mjs` while keeping their CommonJS files as `.js` and use them both. This would be an opt-in to the `--experimental-modules` behavior.
-3. Presumably loaders would be able to enable this functionality, deciding to treat a file as CommonJS either based on file extension or some detection inside the file source.
-4. We could create some other form of configuration to enable this, like a section in `package.json` that explicitly lists files to be loaded as CommonJS.
+1. We could treat all `.js` files outside of an ESM package (detected via a `package.json` file with a signifier that the package is ESM, such as having an `"exports"` field) as CommonJS and all `.mjs` files as ESM. This would follow the current `--experimental-modules` behavior.
+2. We could introduce a `.cjs` extension that Node always interprets as JavaScript with a CommonJS parse goal, the mirror of `.mjs`. (This might be a good thing to add in any case, for design symmetry.) Users could then rename their CommonJS `.js` files to use `.cjs` extensions and import them via `import` statements. We could also support symlinks, so that a `foo.cjs` symlink pointing at `foo.js` would be treated as CommonJS when imported via `import './foo.cjs';`, to support cases where users can’t rename their files for whatever reason.
+3. We could implement the `"mimes"` proposal from [nodejs/modules#160](https://github.com/nodejs/modules/pull/160), which lets users control how Node treats various file extensions within a package boundary. This would let users save their ESM files with `.mjs` while keeping their CommonJS files as `.js` and use them both. This would be an opt-in to the `--experimental-modules` behavior.
+4. Presumably loaders would be able to enable this functionality, deciding to treat a file as CommonJS either based on file extension or some detection inside the file source.
+5. We could create some other form of configuration to enable this, like a section in `package.json` that explicitly lists files to be loaded as CommonJS.
 
 Again, we think that user demand for this use case is so low as to not warrant supporting it any more conveniently than `module.createRequireFromPath` for now, especially since there are several other potential solutions that remain possible in the future within the design space of this proposal.
 
