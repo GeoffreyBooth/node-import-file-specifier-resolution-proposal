@@ -42,28 +42,57 @@ do ->
 				# Adapted from https://github.com/Jam3/detect-import-require/blob/master/index.js#L64
 				if path.node.source?.type is 'Literal'
 					if path.node.source.value[0] is '.' # Relative file path
-						importSource = join dirname(file), path.node.source.value
+						importSource = path.node.source.value
 						unresolved = no
 						try
 							# Try resolving an auto-supplied .mjs extension first, in case there’s both a file.mjs and a file.js side-by-side
-							importSource = require.resolve join(process.cwd(), "#{importSource}.mjs")
-							importSource = importSource.replace process.cwd(), '.'
+							importSource = require.resolve "#{importSource}.mjs", paths: [dirname(file)]
 						catch
 							try
-								importSource = require.resolve join(process.cwd(), importSource)
-								importSource = importSource.replace process.cwd(), '.'
-							catch # Unresolvable for some reason
-								unresolved = yes
-								console.error "Error: Could not resolve #{importSource} imported by #{file}"
+								importSource = require.resolve "#{importSource}/index.mjs", paths: [dirname(file)]
+							catch
+								try
+									importSource = require.resolve importSource, paths: [dirname(file)]
+								catch # Unresolvable for some reason
+									unresolved = yes
+									console.error "Error: Could not resolve #{importSource} imported by #{file}"
+						importSource = importSource.replace process.cwd(), '.'
 						results[file].importSources[importSource] =
 							type: 'file'
 							source: path.node.source.value
 						results[file].importSources[importSource].resolved = no if unresolved
-					else # Bare specifier, so NPM module
-						results[file].importSources[path.node.source.value] =
-							type: 'package'
-							source: path.node.source.value
-							isEsm: esmPackages[path.node.source.value]?
+					else if path.node.source.value[0] in ['/', '~'] # Absolute path that the package relies on a build tool to resolve
+						console.error "Error: Could not resolve #{path.node.source.value} imported by #{file}"
+					else # Package bare specifier or deep import
+						specifierParts = path.node.source.value.split '/'
+						packageName = if specifierParts[0].startsWith '@' then "#{specifierParts[0]}/#{specifierParts[1]}" else specifierParts[0]
+						if path.node.source.value is packageName # Bare specifier only, importing package entry point
+							results[file].importSources[path.node.source.value] =
+								type: 'package entry point'
+								source: path.node.source.value
+								isEsm: esmPackages[path.node.source.value]?
+						else # Deep import
+							importSource = path.node.source.value
+							unresolved = no
+							try
+								# Try resolving an auto-supplied .mjs extension first, in case there’s both a file.mjs and a file.js side-by-side
+								importSource = require.resolve "#{importSource}.mjs", paths: ['./modules-using-module']
+							catch
+								try
+									# Try resolving an auto-supplied .mjs extension first, in case there’s both a file.mjs and a file.js side-by-side
+									importSource = require.resolve "#{importSource}/index.mjs", paths: ['./modules-using-module']
+								catch
+									try
+										importSource = require.resolve importSource, paths: ['./modules-using-module']
+									catch # Unresolvable for some reason
+										unresolved = yes
+										console.error "Error: Could not resolve #{importSource} imported by #{file}"
+							importSource = importSource.replace process.cwd(), '.'
+							results[file].importSources[importSource] =
+								type: 'package deep import'
+								source: path.node.source.value
+							results[file].importSources[importSource].resolved = no if unresolved
+
 				@traverse path
 
 			visitExport = (path) ->
@@ -96,7 +125,7 @@ do ->
 				visitIdentifier: visitIdentifier
 
 		for resultKey, resultValue of results
-			for importSourceKey, importSourceValue of resultValue.importSources when importSourceValue.type is 'file'
+			for importSourceKey, importSourceValue of resultValue.importSources when importSourceValue.type in ['file', 'package deep import']
 				importSourceValue.isEsm = results[importSourceKey]?.isEsm
 				importSourceValue.isCjs = results[importSourceKey]?.isCjs
 		try
