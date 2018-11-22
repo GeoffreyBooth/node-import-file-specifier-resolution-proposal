@@ -123,7 +123,7 @@ import cookies from 'file:///usr/src/app/node_modules/request/lib/cookies.js'; /
 
 File extensions are still relevant. While either a `.js` or an `.mjs` file can be loaded as ESM, only `.js` files can be loaded as CommonJS. If the above example’s `cookies.js` was renamed `cookies.mjs`, the theoretical `import cookies from 'request/lib/cookies.mjs'` would throw.
 
-The CommonJS automatic file extension resolution or folder `index.js` discovery are not supported for `import` statements, even when referencing files inside CommonJS packages. Both `import cookies from 'request/lib/cookies'` and `import request from './node_modules/request'` would throw.
+The CommonJS automatic file extension resolution or folder `index.js` discovery are not supported for `import` statements, even when referencing files inside CommonJS packages. Both `import cookies from 'request/lib/cookies'` and `import request from './node_modules/request'` would throw. Automatic file extension resolution or folder `index.js` discovery _are_ still supported for `package.json` `"main"` field specifiers, however, to preserve backward compatibility.
 
 ### Specifiers starting with `/` or `//`
 
@@ -141,7 +141,7 @@ The ESM and CommonJS versions of a dual-mode package are really two distinct pac
 
 ### “Double importing” of files
 
-There is the possibility of `import` and `createRequireFromPath` both importing the same file into the same package scope, potentially the former as ESM and the latter as CommonJS. Node needs to throw an exception in such situations.
+There is the possibility of `import` and `createRequireFromPath` both importing the same file into the same package scope, potentially the former as ESM and the latter as CommonJS. Allowing this would likely cause issues, and a solution would need to be worked out to handle this situation.
 
 ### “Loose” CommonJS files (files outside of packages)
 
