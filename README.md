@@ -315,9 +315,9 @@ CommonJS import of ESM packages or files is outside the scope of this proposal. 
 
 </details>
 
-<details><summary>Expectations when loading `package.json` files</summary>
+<details><summary>Constancy expectations when loading files</summary>
 
-During the procedures described above, when checking for and loading data from `package.json` files that have also been used by the resolution algorithm specific to the imported file, the expectation is that the implementation will ensure that these operations yield identical results to the existance of a `package.json` file for the same path and if applicable, the cached or parsed data is also identical.
+Files are read as part of the module loading process: source code files and the `package.json` files used to locate those source files or determine those source files’ parse goals. Once a file is loaded for a particular resolved URL, or a `package.json` is read as part of resolving that URL, those files are not read again. If the source file or `package.json` changes on disk, or the virtual representation of the file on disk changes, Node is unaware of the change and will continue to use the cached versions of the files as they existed when Node first read them.
 
 </details>
 
