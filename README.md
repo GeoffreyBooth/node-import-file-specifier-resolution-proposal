@@ -103,6 +103,8 @@ There are (at least) two parts to module resolution: _location_ and _interpretat
 
 This proposal covers only the interpretation, or what Node should do once the file is found. For our purposes, interpretation means whether Node should load the package or file as ESM or as CommonJS.
 
+This proposal only covers interpretation of files specified via `import` statements (e.g. `import './file.js'`) and via the `node` command (`node file.js`).
+
 ### Parsing files as ESM or as CommonJS
 
 There are four types of `import` statement specifiers:
@@ -258,6 +260,12 @@ import cookies from 'file:///usr/src/app/node_modules/request/lib/cookies.js'; /
 File extensions are still relevant. While either a `.js` or an `.mjs` file can be loaded as ESM, only `.js` files can be loaded as CommonJS. If the above example’s `cookies.js` was renamed `cookies.mjs`, the theoretical `import cookies from 'request/lib/cookies.mjs'` would throw.
 
 The CommonJS automatic file extension resolution or folder `index.js` discovery are not supported for `import` statements, even when referencing files inside CommonJS packages. Both `import cookies from 'request/lib/cookies'` and `import request from './node_modules/request'` would throw. Automatic file extension resolution or folder `index.js` discovery _are_ still supported for `package.json` `"main"` field specifiers, however, to preserve backward compatibility.
+
+#### Initial entry point
+
+It is outside the scope of this proposal to define how an ESM-supporting Node should determine the parse goal, ESM or CommonJS, for every type of input (file, string via `--eval`, string via `STDIN`, extensionless file, etc.). However, for the purposes of completeness for this proposal we will define _one_ method that we expect Node to support, with the understanding that additional methods will be necessary to handle the other use cases.
+  
+To preserve backward compatibility, we expect that `node file.js` will continue to load the entry point `file.js` as CommonJS by default. (This may be deprecated and eventually changed to an ESM default in the future, but certainly not in the initial release of Node with ESM support.) However, if `file.js` is inside an ESM package scope, Node should load `file.js` as ESM. So for example, if a [`package.json` with an ESM-signifying field](#parsing-packagejson) is in the same folder as `file.js`, `node file.js` would load `file.js` as ESM. The same “search up the file tree for a `package.json`” [algorithm](#procedure) for `import` statements applies when determining the package scope for `file.js`.
 
 #### Important Notes
 
