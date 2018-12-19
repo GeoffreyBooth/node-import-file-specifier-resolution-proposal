@@ -151,9 +151,13 @@ Else
             Load the file as ESM.
 ```
 
-A `package.json` file is detected as ESM if it contains a key that signifies ESM support, such as the `"exports"` field from the [package exports proposal][jkrems/proposal-pkg-exports] or another ESM-signifying field like [`"mode"`][nodejs/node/pull/18392]
-
 The folder containing the located `package.json` and its subfolders are the _package scope,_ and the parent folder is on the other side of a _package boundary._ There can be multiple `package.json` files in a path, creating multiple package boundaries.
+
+#### Parsing `package.json`
+
+A `package.json` file is detected as ESM if it contains a key that signifies ESM support, such as the `"exports"` field from the [package exports proposal][jkrems/proposal-pkg-exports] or another ESM-signifying field like [`"mode"`][nodejs/node/pull/18392]. For the purposes of this proposal we will refer to `"exports"`, but in all cases that’s a placeholder for whatever `package.json` field or fields end up signifying that a package exports ESM files.
+
+A `package.json` file is detected as CommonJS by the _lack_ of an ESM-signifying field. A package may also export both ESM and CommonJS files; see [“dual mode”](#important-notes) below.
 
 #### Example
 
