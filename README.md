@@ -281,17 +281,13 @@ To preserve backward compatibility, we expect that `node file.js` will continue 
 
   A package can be “dual mode” if its `package.json` contains both a `"main"` field and an `"exports"` field (or some other ESM-signifying field). An `import` statement of such a package will treat the package as ESM and ignore the `"main"` field. To explicitly import a dual-mode package via its CommonJS entry point, [`module.createRequireFromPath`][nodejs-docs-modules-create-require-from-path] could be used.
 
-  The ESM and CommonJS versions of a dual-mode package are really two distinct packages, and would be treated as such by Node if both were imported. It is an implementation detail to be worked out what Node should do in such a situation. Of particular concern are race conditions that could occur if it might be unpredictable which version (ESM or CommonJS) of a dual-mode package gets loaded first.
+  The ESM and CommonJS module systems have independent namespaces.  Therefore the ESM and CommonJS versions of a file have separate identities when instantiated.  The module loader's previous invariant was: a file will only be loaded at-most once within a Node application.  This invariant now becomes: a version of a file (ESM or CommonJS) will only be loaded at-most once within a Node application.
+  
+  Users that only rely on Node's interpretation of a module, via `import` and `import()`, will never trigger simultaneous instantiation of both versions.  Today, the only way to encounter this dual-instantiation scenario is if some part of the application uses `import`/`import()` to load a module **and** some other part of the application overrides Node's interpretation by using `require()` or  [`module.createRequireFromPath`][nodejs-docs-modules-create-require-from-path] to load that same module.
 
-  Different modes of the same package _should_ be importable into different package scopes, for example if a user’s project imports ESM `lodash` and that project has a dependency which itself imports CommonJS `lodash`. This corresponds with how different package scopes today can import different versions of the same package, such a user’s project having dependencies of `lodash@2` and `request`, with `request` then having a dependency of `lodash@1`, and both the user’s project and `request` each receive the version of `lodash` that they expect.
+  The choice to allow dual-instantiation was made to provide well-defined determinstic behaviour.  Alternative behaviours, such as throwing a runtime exception upon encountering the scenario, were deemed brittle and likely to cause user frustration.  Nevertheless, dual instantiation is not an encouraged pattern.  Users should ideally avoid dual-instantiation by migrating consumers away from `require` to use `import` or `import()`.
 
 #### Further Considerations
-
-<details><summary>“Double importing” of files</summary>
-
-There is the possibility of `import` and `createRequireFromPath` both importing the same file into the same package scope, potentially the former as ESM and the latter as CommonJS. Allowing this would likely cause issues, and a solution would need to be worked out to handle this situation.
-
-</details>
 
 <details><summary>“Loose” CommonJS files (files outside of packages)</summary>
 
