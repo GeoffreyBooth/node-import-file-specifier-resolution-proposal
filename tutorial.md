@@ -43,7 +43,7 @@ About to write to /tmp/hello-world-server/package.json:
   "name": "hello-world-server",
   "version": "1.0.0",
   "description": "A web server that says hello!",
-  "exports": "index.mjs",
+  "exports": "./index.mjs",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
