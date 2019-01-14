@@ -333,6 +333,10 @@ Files are read as part of the module loading process: source code files and the 
 
 </details>
 
+## Example
+
+See a version of Node’s Hello World tutorial written according to this proposal: [tutorial.md](./tutorial.md).
+
 ## Prior Art
 
 - [Package exports proposal][jkrems/proposal-pkg-exports]
