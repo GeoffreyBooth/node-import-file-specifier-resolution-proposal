@@ -95,7 +95,7 @@ Two proposals (at least) were made to try to address this specifically through d
 
 2. **[`"mimes"`][nodejs/modules#160]** proposes a `"mimes": { … }` block which defines fine-grained mappings for any extension.
 
-The data shows that `import` statements of CommonJS `.js` files appear to be far less popular comapred to imports of ESM `.js` files, which are 19 times more common. From this, we can make an assumption that users in general may be more inclined to “intuitively” prefer `import` statements of `.js` files to be used to import from ESM sources over CommonJS ones. However, it is also the position of the authors that the `.mjs` file extension should retain it's current connotation to be by default always treated as an ESM source, unless otherwise reconfigured.
+The data shows that `import` statements of CommonJS `.js` files appear to be far less popular compared to imports of ESM `.js` files, which are 19 times more common. From this, we can make an assumption that users in general may be more inclined to “intuitively” prefer `import` statements of `.js` files to be used to import from ESM sources over CommonJS ones. However, it is also the position of the authors that the `.mjs` file extension should retain its current connotation to be by default always treated as an ESM source, unless otherwise reconfigured.
 
 ## Proposal
 
