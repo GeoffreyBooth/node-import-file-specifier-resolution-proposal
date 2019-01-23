@@ -89,8 +89,9 @@ And in a web browser, go to http://localhost:3000. You should see the text `Hell
 You can try this tutorial yourself by using a fork of Node that implements the modules proposals:
 
 ```bash
-git clone git@github.com:guybedford/node#irp-implementation ecmascript-modules-guybedford
-cd ecmascript-modules-guybedford
+git clone git clone git@github.com:guybedford/node node-guybedford
+cd node-guybedford
+git checkout irp-implementation
 # Build per https://github.com/nodejs/node/blob/master/doc/guides/building-node-with-ninja.md
 # Install Ninja if needed (Mac): brew install ninja
 ./configure --ninja
