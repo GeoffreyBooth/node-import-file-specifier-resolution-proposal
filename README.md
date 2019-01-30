@@ -150,7 +150,7 @@ Else
             Else
                 Load the file as CommonJS.
         Else we reach the file system root without finding a package.json
-            Load the file as ESM.
+            Load the file as CommonJS.
 ```
 
 The folder containing the located `package.json` and its subfolders are the _package scope,_ and the parent folder is on the other side of a _package boundary._ There can be multiple `package.json` files in a path, creating multiple package boundaries.
