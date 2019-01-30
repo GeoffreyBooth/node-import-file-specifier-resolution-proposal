@@ -31,7 +31,7 @@ package name: (hello-world-server)
 version: (1.0.0)
 description: A web server that says hello!
 use import/export syntax: (yes)
-entry point: (index.mjs)
+entry point: (index.js)
 test command:
 git repository:
 keywords:
@@ -43,7 +43,8 @@ About to write to /tmp/hello-world-server/package.json:
   "name": "hello-world-server",
   "version": "1.0.0",
   "description": "A web server that says hello!",
-  "exports": "./index.mjs",
+  "type": "esm",
+  "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -57,7 +58,7 @@ Is this OK? (yes)
 
 You should now have a `package.json` in your `hello-world-server` folder, with the contents as above. This describes the files in this folder (the “package”) both for Node and for other packages to know how to interpret them.
 
-Now create an `index.mjs` file in the folder, with the following contents:
+Now create an `index.js` file in the folder, with the following contents:
 
 ```js
 import http from 'http';
@@ -79,7 +80,7 @@ server.listen(port, hostname, () => {
 This code creates a web server listening on localhost port 3000, responding to every request with the text `Hello World`. Let’s see it in action!
 
 ```bash
-node index.mjs
+node index.js
 ```
 
 And in a web browser, go to http://localhost:3000. You should see the text `Hello World`!
@@ -102,5 +103,5 @@ ln -fs out/Release/node node
 Note that this branch doesn’t have an updated NPM, so you need to replace the contents of your generated `package.json` with the contents shown in the tutorial above. Once you’ve done that, assuming you’ve completed the tutorial and saved to `~/Sites/hello-world-server`:
 
 ```bash
-./node ~/Sites/hello-world-server/index.mjs
+./node ~/Sites/hello-world-server/index.js
 ```

@@ -157,7 +157,7 @@ The folder containing the located `package.json` and its subfolders are the _pac
 
 #### Parsing `package.json`
 
-A `package.json` file is detected as ESM if it contains a key that signifies ESM support, such as the `"exports"` field from the [package exports proposal][jkrems/proposal-pkg-exports] or another ESM-signifying field like [`"mode"`][nodejs/node/pull/18392]. For the purposes of this proposal we will refer to `"exports"`, but in all cases that’s a placeholder for whatever `package.json` field or fields end up signifying that a package exports ESM files.
+A `package.json` file is detected as ESM if it contains a key that signifies ESM support, such as the `"type"` field from the [package type proposal](https://github.com/guybedford/ecmascript-modules-mode) or the `"exports"` field from the [package exports proposal][jkrems/proposal-pkg-exports] or another ESM-signifying field like [`"mode"`][nodejs/node/pull/18392]. For the purposes of this proposal we will refer to `"type"`, but in all cases that’s a placeholder for whatever `package.json` field or fields end up signifying that a package exports ESM files.
 
 A `package.json` file is detected as CommonJS by the _lack_ of an ESM-signifying field. A package may also export both ESM and CommonJS files; see [“dual mode”](#important-notes) below.
 
@@ -165,20 +165,18 @@ A `package.json` file is detected as CommonJS by the _lack_ of an ESM-signifying
 
 <!--
 ```
-/usr/src/app/package.json - contains "exports" field, starts ESM package scope
+/usr/src/app/package.json - contains "type" field, starts ESM package scope
 /usr/src/app/index.js - parsed as ESM
 /usr/src/app/startup/init.js - parsed as ESM
 
-/usr/src/app/node_modules/sinon/package.json - contains "exports" with
-                                               {"": "./dist/index.mjs",
-                                                "/stub": "./dist/stub/index.mjs"}
+/usr/src/app/node_modules/sinon/package.json - contains "type": "esm"
 /usr/src/app/node_modules/sinon/dist/index.mjs - parsed as ESM
 /usr/src/app/node_modules/sinon/dist/stub/index.mjs - parsed as ESM
 
-/usr/src/app/node_modules/sinon/node_modules/underscore/package.json - no "exports", starts CJS scope
+/usr/src/app/node_modules/sinon/node_modules/underscore/package.json - no "type", starts CJS scope
 /usr/src/app/node_modules/sinon/node_modules/underscore/underscore.js - parsed as CommonJS
 
-/usr/src/app/node_modules/request/package.json - no "exports", starts CJS package scope
+/usr/src/app/node_modules/request/package.json - no "type", starts CJS package scope
 /usr/src/app/node_modules/request/index.js - parsed as CommonJS
 /usr/src/app/node_modules/request/lib/cookies.js - parsed as CommonJS
 ```
@@ -186,8 +184,8 @@ A `package.json` file is detected as CommonJS by the _lack_ of an ESM-signifying
 
 ```
  ├─ /usr/src/app/                        <- ESM package scope
- │    package.json {                        created by package.json with "exports" field
- │      "exports": { ... }
+ │    package.json {                        created by package.json with "type": "esm"
+ │      "type": "esm"
  │    }
  │
  ├─ index.js                             <- parsed as ESM
@@ -199,11 +197,9 @@ A `package.json` file is detected as CommonJS by the _lack_ of an ESM-signifying
  └─┬ node_modules/
    │
    ├─┬─ sinon/                           <- ESM package scope
-   │ │    package.json {                    created by package.json with "exports" field
-   │ │      "exports": {
-   │ │        "": "./dist/index.mjs",
-   │ │        "/stub": "./dist/stub/index.mjs"
-   │ │      }
+   │ │    package.json {                    created by package.json with "type": "esm"
+   │ │      "type": "esm"
+   │ │      "main": "index.mjs"
    │ │    }
    │ │
    │ ├─┬─ dist/
@@ -217,14 +213,14 @@ A `package.json` file is detected as CommonJS by the _lack_ of an ESM-signifying
    │ └─┬ node_modules/
    │   │
    │   └─┬ underscore/                   <- CommonJS package scope
-   │     │   package.json {                 created by package.json with no "exports" field
+   │     │   package.json {                 created by package.json with no "type" field
    │     │     "main": "underscore.js"
    │     │   }
    │     │
    │     └─ underscore.js                <- parsed as CommonJS
    │
    └─┬ request/                          <- CommonJS package scope
-     │   package.json {                     created by package.json with no "exports" field
+     │   package.json {                     created by package.json with no "type" field
      │     "main": "index.js"
      │   }
      │
@@ -243,7 +239,7 @@ import sinon from 'sinon'; // ESM
 import request from 'request'; // CommonJS
 
 // Deep imports
-import stub from 'sinon/stub'; // ESM
+import stub from 'sinon/stub/index.mjs'; // ESM
 import cookies from 'request/lib/cookies.js'; // CommonJS
 
 // File specifiers: relative
@@ -259,12 +255,12 @@ import cookies from 'file:///usr/src/app/node_modules/request/lib/cookies.js'; /
 
 File extensions are still relevant. While either a `.js` or an `.mjs` file can be loaded as ESM, only `.js` files can be loaded as CommonJS. If the above example’s `cookies.js` was renamed `cookies.mjs`, the theoretical `import cookies from 'request/lib/cookies.mjs'` would still load as ESM as the `.mjs` extension is itself unambiguous.
 
-The CommonJS automatic file extension resolution or folder `index.js` discovery are not supported for `import` statements, even when referencing files inside CommonJS packages. Both `import cookies from 'request/lib/cookies'` and `import request from './node_modules/request'` would throw. Automatic file extension resolution or folder `index.js` discovery _are_ still supported for `package.json` `"main"` field specifiers, however, to preserve backward compatibility.
+The CommonJS automatic file extension resolution or folder `index.js` discovery are not supported for `import` statements, even when referencing files inside CommonJS packages. Both `import cookies from 'request/lib/cookies'` and `import request from './node_modules/request'` would throw. Automatic file extension resolution or folder `index.js` discovery _are_ still supported for `package.json` `"main"` field specifiers for CommonJS packages, however, to preserve backward compatibility.
 
 #### Initial entry point
 
 It is outside the scope of this proposal to define how an ESM-supporting Node should determine the parse goal, ESM or CommonJS, for every type of input (file, string via `--eval`, string via `STDIN`, extensionless file, etc.). However, for the purposes of completeness for this proposal we will define _one_ method that we expect Node to support, with the understanding that additional methods will be necessary to handle the other use cases.
-  
+
 To preserve backward compatibility, we expect that `node file.js` will continue to load the entry point `file.js` as CommonJS by default. (This may be deprecated and eventually changed to an ESM default in the future, but certainly not in the initial release of Node with ESM support.) However, if `file.js` is inside an ESM package scope, Node should load `file.js` as ESM. So for example, if a [`package.json` with an ESM-signifying field](#parsing-packagejson) is in the same folder as `file.js`, `node file.js` would load `file.js` as ESM. The same “search up the file tree for a `package.json`” [algorithm](#procedure) for `import` statements applies when determining the package scope for `file.js`.
 
 #### Important Notes
@@ -279,12 +275,12 @@ To preserve backward compatibility, we expect that `node file.js` will continue 
 
 - **“Dual mode” packages**
 
-  A package can be “dual mode” if its `package.json` contains both a `"main"` field and an `"exports"` field (or some other ESM-signifying field). An `import` statement of such a package will treat the package as ESM and ignore the `"main"` field. To explicitly import a dual-mode package via its CommonJS entry point, [`module.createRequireFromPath`][nodejs-docs-modules-create-require-from-path] could be used.
+  It is outside the scope of this proposal to define the fields necessary in `package.json` to enable a single package to export both ESM and CommonJS entry points. We expect that a follow-on proposal will cover this use case.
 
 - **Dual instantiation**
 
   The ESM and CommonJS interpretations of a module have independent storage. The same source module may be loaded as both an ESM version and a CommonJS version in the same application, in which case the module will be evaluated twice (once for each parse goal) and the resulting instances will **never** have the same identity. This means that whilst `import` and `import()` may return a CommonJS `exports` value for a module whose interpretation is confirmed to be CommonJS, `require()` will never return the ESM namespace object for a module whose interpretation is ESM.
-  
+
   Applications that avoid `require()` and only rely on Node’s interpretation of a module, via `import` and `import()`, will never trigger simultaneous instantiation of both versions. With this proposal, the only way to encounter this dual-instantiation scenario is if some part of the application uses `import`/`import()` to load a module **and** some other part of the application overrides Node’s interpretation by using `require()` or  [`module.createRequireFromPath`][nodejs-docs-modules-create-require-from-path] to load that same module.
 
   The choice to allow dual-instantiation was made to provide well-defined determinstic behaviour.  Alternative behaviours, such as throwing a runtime exception upon encountering the scenario, were deemed brittle and likely to cause user frustration. Nevertheless, dual instantiation is not an encouraged pattern. Users should ideally avoid dual-instantiation by migrating consumers away from `require` to use `import` or `import()`.
