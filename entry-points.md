@@ -91,17 +91,27 @@ If the order of evaluation were reversed, with Node attempting to parse ambiguou
 
 Simply put, because ESM is the standard and Node’s performance should be optimized for it. As time goes by, more and more `.js` files will be ESM, and fewer and fewer files will suffer the slight performance hit of the double evaluation when loading the initial entry point. Eventually Node could even decide to deprecate the CommonJS fallback and require users to use one of the explicit CommonJS signifiers (`--commonjs` or `.cjs`) to enable a legacy CommonJS entry point.
 
+Also, CommonJS is basically finished at this point. In the unlikely event that new CommonJS globals are introduced, they can be added to the list of detected globals in the algorithm above; but more likely, the algorithm above will never need to change even as JavaScript continues to evolve.
+
 ### But the chance of an ambiguous detection, where Node cannot definitively detect either ESM or CommonJS is nonzero. That’s not acceptable for a runtime.
 
 Current, pre-ESM versions of Node also have this problem. Users have been writing ESM JavaScript in `.js` files since 2015, and `node ambiguous.js` has been executing such ambiguous files as CommonJS since then.
 
 So all we’re really proposing here is a change in Node’s behavior: rather than executing ambiguous files as CommonJS, Node will henceforth execute them as ESM. This is a very minor breaking change, as there should be no or almost no ambiguous files that behave differently in strict versus sloppy mode in actual practical use by users; such files probably only exist on the hard drives of Node/ESM developers and researchers. By finally documenting what Node is doing in this edge case, we’re making clear to users what Node’s behavior is and how it can be avoided (e.g. by making their entry point file or source code unambiguous).
 
+### What about detecting ambiguous files before trying to evaluate them?
+
+We _could_ avoid the breaking change by adding a step to the beginning of the detection algorithm:
+
+1. Parse the initial entry point and detect if it is ambiguous—no ESM signifiers, no references to CommonJS globals—_and_ that it relies on sloppy mode behavior that would throw or behave differently in strict mode. If it is detected as such an ambiguous sloppy mode file, evaluate as CommonJS.
+
+If the powers that be deem the breaking change to be unacceptable, this logic can be added and the breaking change goes away. But unless someone can point to a real-world use case where the breaking change would affect a significant class of users, however, we view the performance hit of this additional parsing and detection step to not be worth the compatibility preservation.
+
 ### But [unambiguous grammar](https://github.com/bmeck/UnambiguousJavaScriptGrammar) has been rejected in the past.
 
 Most of the previous discussion around module mode detection via unambiguous syntax has assumed it would be used for _every_ file, not just the initial entry point. For example, not just `index.js` in `node index.js`, but also `startup.js` in `import './startup.js'`. It is common for at least _some_ files in a project to have neither `import` or `export` statements, for example a `startup.js` file with the entire contents of `console.log('Starting up...')`. Under a “use detection for every file in a project” scenario, detection would have a “tax” of needing to put something like `export {}` in every such ambiguous file.
 
-Having detection for only the initial entry point, however, alleviates this concern. An entry point _should_ import something, or else by definition the program has no side effects other than what it can `console.log`. Even if a user’s program truly imports nothing yet does something useful, per this proposal it will execute as ESM unless the user explicitly tells Node to run it as CommonJS. The “tax” therefore is to continue the legacy CommonJS behavior, not to opt in to the standard ESM behavior.
+Having detection for only the initial entry point, however, alleviates this concern. An entry point _should_ import something, or else by definition the program has no side effects other than what it can `console.log` or pipe to `STDOUT`. Even if a user’s program truly imports nothing yet does something useful, per this proposal it will merely execute in strict mode unless the user explicitly tells Node to run it as CommonJS. The “tax” therefore is to continue the using sloppy mode, which has been discouraged since strict mode was introduced in ES5 in 2011.
 
 ### But double parsing causes a performance hit.
 
@@ -109,6 +119,20 @@ Like the previous point, most discussion of detection/double parsing assumed tha
 
 So if a CommonJS user wants to avoid the very slight performance hit of double parsing of the initial entry point file, all they need to do is use `.cjs` or `--commonjs`. We feel that this is acceptable in order to provide a zero configuration experience.
 
+### But one typo and the user gets the wrong module system.
+
+When unambiguous syntax was discussed as a method to detect _all_ imported files, a common complaint was something [like](https://github.com/nodejs/modules/pull/150#issuecomment-406515253) “It’s easy to accidentally change the parse goal. A commit adding a single export at the end of a file suddenly changes the parse goal of the whole file.”
+
+This is true if you want to use detection for _all_ files in a project, since many projects might import some ambiguous files (see `startup.js` example above, `console.log('Starting up...')`, or polyfills). But it’s not a significant concern when the only detected file is the initial entry point. As written above, few if any real-world initial entry points should be ambiguous files, and so should generally `require` or `import` something.
+
+Also this “one typo” concern is a bit of a canard—one typo of renaming an `.mjs` file to `.js` could cause it to behave differently, under another implementation. One typo in the ESM-signifying field in `package.json` and the user fails to opt into ESM, under a different implementation. Users can always screw things up; if anything, a detection algorithm is _more_ likely to correctly achieve the user’s intent than requiring them to correctly opt into ESM support.
+
 ### But it’s not too much to ask users to always be explicit.
 
 Perhaps, but we’ve seen how popular “zero configuration” is as a feature among projects across the Web in recent years. Under this proposal Node can provide zero configuration ESM.
+
+## References
+
+- https://github.com/nodejs/modules/pull/150#issuecomment-406515253
+- https://github.com/nodejs/node-eps/issues/57#issuecomment-300870976
+- https://github.com/nodejs/modules/issues/254
