@@ -85,7 +85,7 @@ node index.js
 
 And in a web browser, go to http://localhost:3000. You should see the text `Hello World`!
 
-## Try It Today
+## Try it today
 
 You can try this tutorial yourself by using a fork of Node that implements the modules proposals:
 
