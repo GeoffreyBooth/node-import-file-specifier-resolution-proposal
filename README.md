@@ -5,10 +5,10 @@ This proposal aims to specify how Node.js should choose between its supported mo
 > In a hurry? Skip straight to the [Proposal](./proposal.md).
 
 - [Background](./background.md)
-  - Motivating examples
-  - High level considerations
-  - Real world data
-  - Note on default treatment of `.js` files
+  - [Motivating examples](./background.md#motivating-examples)
+  - [High level considerations](./background.md#high-level-considerations)
+  - [Real world data](./background.md#real-world-data)
+  - [Note on default treatment of `.js` files](./background.md#note-on-default-treatment-of-js-files)
 
 - [Proposal](./proposal.md)
   - Introduction
