@@ -14,7 +14,7 @@ This proposal aims to specify how Node.js should choose between its supported mo
   - Introduction
   - Package scopes and package boundaries
   - Package scope algorithm
-  - `package.json` fields
+  - `package.json` and package metadata
   - `import` statements and `import()` expressions
   - Initial entry points
 

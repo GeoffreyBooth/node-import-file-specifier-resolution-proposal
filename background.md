@@ -10,6 +10,8 @@
 
 - A package that aims to be imported into either a Node.js or a browser environment, without requiring a build step.
 
+- A package that aims to be imported into either legacy Node environments as CommonJS or current Node environments as ESM.
+
 ## High level considerations
 
 - The baseline behavior of relative imports should match a browser’s with a simple file server.

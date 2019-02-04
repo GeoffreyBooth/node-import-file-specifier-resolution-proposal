@@ -65,9 +65,71 @@ Else
 
 The last case, when we reach the file system root without finding a `package.json`, covers files that are outside any package scope. If such files are the initial entry point, e.g. `node /usr/local/bin/backup.js`, they are parsed as CommonJS for backward compatibility. If such files are referenced via an `import` statement or `import()` expression, they are parsed as ESM.
 
-## `package.json` fields
+## `package.json` and package metadata
 
-> Coming soon!
+The following package metadata properties can be used by package authors to specify how their package should be consumed:
+
+- **Type**: The _package type_ is a piece of metadata describing the “type” of the package the same way that a file extension describes the _type_ of a file. The type is explicitly _descriptive,_ like the current `package.json` `name` or `version` fields, rather than a place for configuration like a `babel` block. A package can have multiple types, for example to support importing into either CommonJS or ESM environments (or other environments like browsers or Babel builds). How a package of a particular type should be interpreted is up to the runtime.
+
+- **Entry point**: Every package needs a main entry point, or file loaded when the package name alone is used as a specifier. For example, `require('lodash')` today loads `./node_modules/lodash/lodash.js` because `lodash` has a `package.json` `main` field of `lodash.js`. Packages containing multiple types need a new field besides `main` to specify the entry points for each type.
+
+### `type` field
+
+The new `package.json` field `type` lets package authors specify the type(s) of a package. The field can take a string or an array of strings. The only values supported by Node are `"module"` and `"commonjs"`:
+
+```json
+{
+  "type": "module"
+}
+```
+```json
+{
+  "type": ["module", "commonjs"]
+}
+```
+
+The name `"type": "module"` was chosen to match the Web’s `<script type="module">`. See also [`--type=module`](--typemodule-flag) below.
+
+A package being defined as of `type: module` is _descriptive,_ telling all consumers—Node, Deno, Webpack, etc.—that this package can be interpreted as a module/ESM package. What that means in practice is up to each particular runtime or bundler.
+
+Node treats `type: module`/ESM packages as having an ESM entry point file, and all ambiguous files in the package (e.g. files with `.js` extensions or lacking extensions) are parsed as ESM.
+
+The `type` property isn’t limited to informing a runtime how it should parse particular file extensions. Node could interpret `type: module` as a cue to provide this package with package-scoped `process` or `Buffer` globals, for example. We expect that what Node decides to assume about ESM packages will evolve over time.
+
+The `type` property can contain values beyond just `"module"` or `"commonjs"`, though those are the only values that Node will support for now. One non-supported value we expect users to use is `"browser"`, to inform consumers that the package contains one or more files intended for use in a browser environment. This corresponds with the `package.json` `browser` key often used by projects today.
+
+If `type` is included in a `package.json` file, either `main` or `entrypoint` (or both) must also be included.
+
+### `entrypoint` field
+
+The new `package.json` field `entrypoint` defines the package entry point for each type that this package supports. If the package is a single type, `entrypoint` can take a string pointing to a file. If the package has multiple types, `entrypoint` must be an object where each key corresponds to one of the package’s types. Automatic file extensions or directory indexes are not supported.
+
+```json
+{
+  "type": "module",
+  "entrypoint": "./main.js"
+}
+```
+```json
+{
+  "type": ["module", "commonjs", "browser"],
+  "entrypoint": {
+    "module": "./src/index.js",
+    "commonjs": "./dist/index.js",
+    "browser": "./dist/browser.js"
+  }
+}
+```
+
+The `type` field can be excluded if `entrypoint` is used with the object form, as the keys of the object are enough to tell Node the types that the package supports.
+
+If an `entrypoint` value is missing for a the `"module"` type, for example if a `package.json` has `type: "module"` but no `entrypoint` key, attempting to import the package using a bare specifier (`import 'lodash'`) will throw an error. ESM packages have no assumed default package entry point like CommonJS’ `index.js`.
+
+### `main` field
+
+The `package.json` `main` field is deprecated. It defines the CommonJS package entry point, and that’s all. If the package has both `main` and `entrypoint` fields,the `main` field will take precedence so as not to provide varying CommonJS package entry points between old and new versions of Node. If the `main` field is present, the package is assumed to support the `"commonjs"` type even if that type isn’t listed in the `type` field.
+
+Basically, parsing of `package.json` aims to be as forgiving as possible without breaking backward compatibility or providing varying outcomes for CommonJS between pre-ESM and current versions of Node.
 
 ---
 
@@ -97,7 +159,7 @@ The following methods can inform Node how to interpret the initial entry point:
 
 1. Entry point files with `.js` extensions or are extensionless are parsed as ESM if they are within an ESM [package scope](#package-scopes-and-package-boundaries), or CommonJS otherwise.
 
-1. Entry point files that symlinks are parsed as ESM or CommonJS depending on whether the _target_ is in an ESM package scope or has an explicit file extension.
+1. Entry point files that are symlinks are parsed as ESM or CommonJS depending on whether the _target_ is in an ESM package scope or has an explicit file extension.
 
 1. If Node is run with the `--type=module` or `-m` command line flag, the entry point is parsed as ESM.
 
@@ -117,7 +179,7 @@ The `.cjs` extension is needed because otherwise there would be no way to create
 
 ### `.js` and extensionless files as initial entry point
 
-Per the [package scope algorithm](#package-scope-algorithm) above, if the entry point is a `.js` file (e.g. `node file.js`) the path to `file.js` is searched for the closest `package.json` and that `package.json` is read to see if it has an [ESM-signifying field](#packagejson-fields). If it does, `file.js` is parsed as ESM.
+Per the [package scope algorithm](#package-scope-algorithm) above, if the entry point is a `.js` file (e.g. `node file.js`) the path to `file.js` is searched for the closest `package.json` and that `package.json` is read to see if it has an [ESM-signifying field](#packagejson-and-package-metadata). If it does, `file.js` is parsed as ESM.
 
 For example, say you have a folder `~/Sites/cool-app`, and in it the files `package.json` and `app.js`. If `package.json` has a field that defines its package scope to be ESM, `node app.js` will run as ESM; otherwise it will run as CommonJS.
 
@@ -204,7 +266,7 @@ There are four types of specifiers used in `import` statements or `import()` exp
 
 ### Parsing `package.json`
 
-A `package.json` file is detected as ESM if it contains a key that signifies ESM support, such as the `"type"` field from the [package type proposal](https://github.com/guybedford/ecmascript-modules-mode) or the `"exports"` field from the [package exports proposal][jkrems/proposal-pkg-exports] or another ESM-signifying field like [`"mode"`][nodejs/node/pull/18392]. For the purposes of this proposal we will refer to `"type"`, but in all cases that’s a placeholder for whatever `package.json` field or fields end up signifying that a package exports ESM files.
+A `package.json` file is detected as ESM if it contains metadata that signifies ESM support, such as `"type": "module"` or `"entrypoint": { "module": "./index.js" }`. For the purposes of this proposal we will refer to `"type"`, but in all cases that’s a placeholder for whichever `package.json` field or fields signify that a package exports ESM files.
 
 A `package.json` file is detected as CommonJS by the _lack_ of an ESM-signifying field. A package may also export both ESM and CommonJS files; such packages’ files are loaded as ESM via `import` and as CommonJS via `require`.
 
@@ -212,8 +274,8 @@ A `package.json` file is detected as CommonJS by the _lack_ of an ESM-signifying
 
 ```
  ├─ /usr/src/app/                        <- ESM package scope
- │    package.json {                        created by package.json with "type": "esm"
- │      "type": "esm"
+ │    package.json {                        created by package.json with "type": "module"
+ │      "type": "module"
  │    }
  │
  ├─ index.js                             <- parsed as ESM
@@ -225,8 +287,8 @@ A `package.json` file is detected as CommonJS by the _lack_ of an ESM-signifying
  └─┬ node_modules/
    │
    ├─┬─ sinon/                           <- ESM package scope
-   │ │    package.json {                    created by package.json with "type": "esm"
-   │ │      "type": "esm"
+   │ │    package.json {                    created by package.json with "type": "module"
+   │ │      "type": "module"
    │ │      "main": "index.mjs"
    │ │    }
    │ │
