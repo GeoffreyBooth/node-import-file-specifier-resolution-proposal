@@ -6,7 +6,7 @@
 
 In a hurry? Just read the [Proposal](#proposal) section.
 
-## Motivating Examples
+## Motivating examples
 
 - A project where all JavaScript is ESM.
 
@@ -16,7 +16,9 @@ In a hurry? Just read the [Proposal](#proposal) section.
 
 - A package that aims to be imported into either a Node.js or a browser environment, without requiring a build step.
 
-## High Level Considerations
+- A package that aims to be imported into either legacy Node environments as CommonJS or current Node environments as ESM.
+
+## High level considerations
 
 - The baseline behavior of relative imports should match a browser’s with a simple file server.
 
@@ -38,19 +40,13 @@ In a hurry? Just read the [Proposal](#proposal) section.
 
   We need to preserve CommonJS files’ ability to `require` CommonJS `.js` files, and ESM files need some way to import `.js` CommonJS files.
 
-- The [package exports proposal][jkrems/proposal-pkg-exports] covers how Node should locate an ESM package’s entry point and how Node should locate deep imports of files inside ESM packages.
-
-  File extensions (and filenames or paths) can be irrelevant for deep imports, allowing specifiers like `"lodash/forEach"` to resolve to a path like `./node_modules/lodash/collections/each.js` via the package exports map.
-
-  That proposal covers how such files are _located,_ while this proposal discusses how such files are _parsed._ The two proposals are intended as complements for each other.
-
 - This proposal only covers `import` statement specifiers; this doesn’t aim to also cover `--eval`, STDIN, command line flags, extensionless files or any of the other ways Node can import an entry point into a project or package.
 
   We intend to build on this proposal with a follow up to cover entry points.
 
-## Real World Data
+## Real world data
 
-As part of preparing the package exports proposal, @GeoffreyBooth did [research][npm-packages-module-field-analysis] into public NPM registry packages using ESM syntax already, as identified by packages that define a `"module"` field in their `package.json` files. There are 941 such packages as of 2018-10-22.
+As part of preparing this proposal, @GeoffreyBooth did [research][npm-packages-module-field-analysis] into public NPM registry packages using ESM syntax already, as identified by packages that define a `"module"` field in their `package.json` files. There are 941 such packages as of 2018-10-22.
 
 A project was created with those packages `npm install`ed, creating a gigantic `node_modules` folder containing 96,923 JavaScript (`.js` or `.mjs`) files.
 
@@ -74,12 +70,12 @@ Code was then written to parse all of those JavaScript files with `acorn` and lo
  ⑴  packages with a <samp>"module"</samp> field in their package.json.
  ⑵  packages lacking a <samp>"module"</samp> field in their package.json.
  ⑶  files with an <samp>import</samp> or <samp>export</samp> declaration.
- ⑷  files with a <samp>require</samp> call or references to <samp>module.exports</samp>, <samp>exports</samp>, <samp>__filename</samp>, or <samp>__dirname</samp>.
+ ⑷  files with a <samp>require</samp> call or references to <samp>module.exports</samp>, <samp>exports</samp>, <samp>\_\_filename</samp>, or <samp>\_\_dirname</samp>.
 </pre>
 
-## A Note on Defaults
+## Note on default treatment of `.js` files
 
-This proposal takes the position that `.js` should be treated as ESM by default within an ESM context. This differs from the default behavior of the current `--experimental-modules` implementation which treats `.js` files to be CommonJS sources and `.mjs` to be ESM.
+This proposal takes the position that `.js` should be treated as ESM by default within an ESM context. This differs from the default behavior of the Node 8-11 `--experimental-modules` implementation which treats `.js` files to be CommonJS sources and `.mjs` to be ESM.
 
 The rationale behind this position is to move towards directions that can:
 
@@ -95,7 +91,7 @@ Two proposals (at least) were made to try to address this specifically through d
 
 2. **[`"mimes"`][nodejs/modules#160]** proposes a `"mimes": { … }` block which defines fine-grained mappings for any extension.
 
-The data shows that `import` statements of CommonJS `.js` files appear to be far less popular compared to imports of ESM `.js` files, which are 19 times more common. From this, we can make an assumption that users in general may be more inclined to “intuitively” prefer `import` statements of `.js` files to be used to import from ESM sources over CommonJS ones. However, it is also the position of the authors that the `.mjs` file extension should retain its current connotation to be by default always treated as an ESM source, unless otherwise reconfigured.
+The research findings show that `import` statements of CommonJS `.js` files appear to be far less popular compared to imports of ESM `.js` files, which are 19 times more common. From this, we can make an assumption that users in general may be more inclined to “intuitively” prefer `import` statements of `.js` files to be used to import from ESM sources over CommonJS ones. However, it is also the position of the authors that the `.mjs` file extension should retain its current connotation to be by default always treated as an ESM source, unless otherwise reconfigured.
 
 ## Proposal
 
@@ -105,9 +101,9 @@ This proposal covers only the interpretation, or what Node should do once the fi
 
 This proposal only covers interpretation of files specified via `import` statements (e.g. `import './file.js'`) and via the `node` command (`node file.js`).
 
-### Parsing files as ESM or as CommonJS
+### `import` specifiers
 
-There are four types of `import` statement specifiers:
+There are four types of specifiers used in `import` statements or `import()` expressions:
 
 - _Bare specifiers_ like `'lodash'`
 
@@ -123,21 +119,46 @@ There are four types of `import` statement specifiers:
 
 - _Absolute URL file specifiers_ like `'file:///opt/nodejs/config.js'`
 
-  > They refer directly and explicity to a file by it's location.
+  > They refer directly and explicity to a file by its location.
 
-#### Procedure
+A central new concept used by many of the methods suggested in the proposal is the _package scope._
 
-In all cases, first Node follows its algorithm to locate a file to load. Once the file is found, Node must then decide whether to load it as ESM or as CommonJS. The algorithm goes as follows:
+### Package scopes
+
+A _package scope_ is a folder containing a `package.json` file and all of that folder’s subfolders except those containing another `package.json` file and _that_ folder’s subfolders. For example:
+
+```
+/usr/                        - outside any package scope
+/usr/src/                    - outside any package scope
+
+/usr/src/app/package.json    - in “app” package scope
+/usr/src/app/index.js        - in “app” package scope
+/usr/src/app/startup/init.js - in “app” package scope
+/usr/src/app/node_modules/   - in “app” package scope
+
+/usr/src/app/node_modules/sinon/package.json - in “sinon” package scope
+/usr/src/app/node_modules/sinon/lib/sinon.js - in “sinon” package scope
+```
+
+The `package.json` files here each create a new package scope for the folder they’re in, and all subfolders down until another `package.json` file creates a new scope below. Thus `/usr/src/app/` and `/usr/src/app/node_modules/sinon/` are each root folders of separate package scopes.
+
+Within a package scope, `package.json` files can hold metadata and configuration for the files contained within that scope. This proposal uses this concept to allow `package.json` values to opt in a package into being interpreted as ESM.
+
+Package scopes apply only to files. While a user may execute code via `node --eval` from within a working directory of a particular package scope, that package scope has no effect on the source code passed in via `node --eval`.
+
+### Package scope algorithm
+
+After Node uses the algorithm in the [resolver specification][nodejs/ecmascript-modules:esm.md#resolver-algorithm] to locate a source code file to load, Node must then decide whether to load it as ESM or as CommonJS. If the source code file has an `.mjs` extension, Node is done; the file is loaded as ESM. Otherwise, Node needs to find the `package.json` governing the package scope that the file is in. That package scope algorithm goes as follows:
 
 ```
 If the file is a package entry point
-    And the package’s package.json is detected to be ESM
+    And the package’s package.json says to load JavaScript as ESM
         Load the file as ESM.
     Else
         Load the file as CommonJS.
 Else
     If there is a package.json in the folder where the file is
-        And the package.json is detected to be ESM
+        And the package.json says to load JavaScript as ESM
             Load the file as ESM.
         Else
             Load the file as CommonJS.
@@ -145,47 +166,28 @@ Else
         Go into the parent folder and look for a package.json there
         Repeat until we either find a package.json or hit the file system root
         If we found a package.json
-            And the package.json is detected to be ESM
+            And the package.json says to load JavaScript as ESM
                 Load the file as ESM.
             Else
                 Load the file as CommonJS.
         Else we reach the file system root without finding a package.json
-            Load the file as CommonJS.
+            Load the file as CommonJS if initial entry point, ESM otherwise.
 ```
 
-The folder containing the located `package.json` and its subfolders are the _package scope,_ and the parent folder is on the other side of a _package boundary._ There can be multiple `package.json` files in a path, creating multiple package boundaries.
+The last case, when we reach the file system root without finding a `package.json`, covers files that are outside any package scope. If such files are the initial entry point, e.g. `node /usr/local/bin/backup.js`, they are parsed as CommonJS for backward compatibility. If such files are referenced via an `import` statement or `import()` expression, they are parsed as ESM.
 
-#### Parsing `package.json`
+### Parsing `package.json`
 
-A `package.json` file is detected as ESM if it contains a key that signifies ESM support, such as the `"type"` field from the [package type proposal](https://github.com/guybedford/ecmascript-modules-mode) or the `"exports"` field from the [package exports proposal][jkrems/proposal-pkg-exports] or another ESM-signifying field like [`"mode"`][nodejs/node/pull/18392]. For the purposes of this proposal we will refer to `"type"`, but in all cases that’s a placeholder for whatever `package.json` field or fields end up signifying that a package exports ESM files.
+A `package.json` file is detected as ESM if it contains metadata that signifies ESM support, such as `"type": "module"`. For the purposes of this proposal we will refer to `"type"`, but in all cases that’s a placeholder for whichever `package.json` field or fields signify that a package exports ESM files.
 
-A `package.json` file is detected as CommonJS by the _lack_ of an ESM-signifying field. A package may also export both ESM and CommonJS files; see [“dual mode”](#important-notes) below.
+A `package.json` file is detected as CommonJS by the _lack_ of an ESM-signifying field. A package may also export both ESM and CommonJS files; such packages’ files are loaded as ESM via `import` and as CommonJS via `require`.
 
-#### Example
-
-<!--
-```
-/usr/src/app/package.json - contains "type" field, starts ESM package scope
-/usr/src/app/index.js - parsed as ESM
-/usr/src/app/startup/init.js - parsed as ESM
-
-/usr/src/app/node_modules/sinon/package.json - contains "type": "esm"
-/usr/src/app/node_modules/sinon/dist/index.mjs - parsed as ESM
-/usr/src/app/node_modules/sinon/dist/stub/index.mjs - parsed as ESM
-
-/usr/src/app/node_modules/sinon/node_modules/underscore/package.json - no "type", starts CJS scope
-/usr/src/app/node_modules/sinon/node_modules/underscore/underscore.js - parsed as CommonJS
-
-/usr/src/app/node_modules/request/package.json - no "type", starts CJS package scope
-/usr/src/app/node_modules/request/index.js - parsed as CommonJS
-/usr/src/app/node_modules/request/lib/cookies.js - parsed as CommonJS
-```
--->
+### Example
 
 ```
  ├─ /usr/src/app/                        <- ESM package scope
- │    package.json {                        created by package.json with "type": "esm"
- │      "type": "esm"
+ │    package.json {                        created by package.json with "type": "module"
+ │      "type": "module"
  │    }
  │
  ├─ index.js                             <- parsed as ESM
@@ -197,8 +199,8 @@ A `package.json` file is detected as CommonJS by the _lack_ of an ESM-signifying
  └─┬ node_modules/
    │
    ├─┬─ sinon/                           <- ESM package scope
-   │ │    package.json {                    created by package.json with "type": "esm"
-   │ │      "type": "esm"
+   │ │    package.json {                    created by package.json with "type": "module"
+   │ │      "type": "module"
    │ │      "main": "index.mjs"
    │ │    }
    │ │
@@ -257,15 +259,15 @@ File extensions are still relevant. While either a `.js` or an `.mjs` file can b
 
 The CommonJS automatic file extension resolution or folder `index.js` discovery are not supported for `import` statements, even when referencing files inside CommonJS packages. Both `import cookies from 'request/lib/cookies'` and `import request from './node_modules/request'` would throw. Automatic file extension resolution or folder `index.js` discovery _are_ still supported for `package.json` `"main"` field specifiers for CommonJS packages, however, to preserve backward compatibility.
 
-#### Initial entry point
+### Initial entry point
 
 It is outside the scope of this proposal to define how an ESM-supporting Node should determine the parse goal, ESM or CommonJS, for every type of input (file, string via `--eval`, string via `STDIN`, extensionless file, etc.). However, for the purposes of completeness for this proposal we will define _one_ method that we expect Node to support, with the understanding that additional methods will be necessary to handle the other use cases.
 
 To preserve backward compatibility, we expect that `node file.js` will continue to load the entry point `file.js` as CommonJS by default. (This may be deprecated and eventually changed to an ESM default in the future, but certainly not in the initial release of Node with ESM support.) However, if `file.js` is inside an ESM package scope, Node should load `file.js` as ESM. So for example, if a [`package.json` with an ESM-signifying field](#parsing-packagejson) is in the same folder as `file.js`, `node file.js` would load `file.js` as ESM. The same “search up the file tree for a `package.json`” [algorithm](#procedure) for `import` statements applies when determining the package scope for `file.js`.
 
-#### Important Notes
+### Important Notes
 
-- **Specifiers starting with `/` or `//`**
+- `import` specifiers starting with `/` or `//`
 
   These are currently unsupported but reserved for future use. Browsers support specifiers like `'/app.js'` to be relative to the base URL of the page, whereas in CommonJS a specifier starting with `/` refers to the root of the file system. We would like to find a solution that conforms Node closer to browsers for `/`-leading specifiers. That may not necessarily involve a leading `/`, for example if Node adopts the [`import:` proposal][import-urls] or something like it; but we would like to preserve design space for a future way to conveniently refer to the root of the current package.
 
