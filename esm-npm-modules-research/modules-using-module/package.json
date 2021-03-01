@@ -850,7 +850,7 @@
     "tf2-demo": "^2.0.1",
     "tg-modal": "^0.8.0",
     "tg-resources": "^2.0.0",
-    "three": "^0.98.0",
+    "three": "^0.125.0",
     "throttle-debounce": "^2.0.1",
     "tiff": "^3.0.1",
     "tiny-binary-search": "^1.0.3",
