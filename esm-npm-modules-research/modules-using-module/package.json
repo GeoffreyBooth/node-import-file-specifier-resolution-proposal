@@ -225,7 +225,7 @@
     "deuteranopia": "^1.0.0",
     "device-detector": "^1.0.2",
     "device.js": "^2.3.0",
-    "dexie": "^2.0.4",
+    "dexie": "^3.2.2",
     "dice-roll": "^1.0.0",
     "dicom-parser": "^1.8.1",
     "didi": "^4.0.0",
