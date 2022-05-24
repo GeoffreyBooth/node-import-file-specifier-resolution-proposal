@@ -308,7 +308,7 @@
     "gsap": "^2.0.2",
     "h.js": "^4.0.0",
     "halcyon": "^0.19.1",
-    "handsontable": "^6.1.1",
+    "handsontable": "^10.0.0",
     "hanzo.js": "^2.5.4",
     "hardcore": "^1.0.0",
     "harvest": "^2.2.5",
