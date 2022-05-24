@@ -305,7 +305,7 @@
     "graph-scroll": "^1.0.2",
     "graphql": "^14.0.2",
     "gregorian": "^4.2.4",
-    "gsap": "^2.0.2",
+    "gsap": "^3.6.0",
     "h.js": "^4.0.0",
     "halcyon": "^0.19.1",
     "handsontable": "^10.0.0",
