@@ -611,7 +611,7 @@
     "rc-tween-one": "^2.2.16",
     "rc-upload": "^2.6.0",
     "rcu-builders": "^0.6.0",
-    "react-admin": "^2.4.1",
+    "react-admin": "^4.7.0",
     "react-alert": "^4.0.4",
     "react-atomic-molecule": "^1.4.11",
     "react-audio-recorder": "^2.2.0",
